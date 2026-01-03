@@ -1,30 +1,32 @@
 import express, { type Express } from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export function serveStatic(app: Express) {
-  // In Vercel, server/index.ts is the entry.
-  // dist/public is two levels up from server/ during the build process.
-  const distPath = path.resolve(__dirname, "..", "dist", "public");
+  // Use process.cwd() as the base, then look into dist/public
+  const distPath = path.join(process.cwd(), "dist", "public");
+
+  // Log for your Vercel Function logs (helpful if this still fails)
+  console.log(`Searching for static files in: ${distPath}`);
+
+  if (fs.existsSync(distPath)) {
+    console.log("Found dist/public! Files:", fs.readdirSync(distPath));
+  }
 
   app.use(express.static(distPath));
 
-  // Fallback for Single Page Application (SPA) routing
   app.use("*", (req, res, next) => {
-    // If the request is for an API, don't serve index.html
+    // Skip if it's an API route
     if (req.originalUrl.startsWith("/api")) {
       return next();
     }
 
     const indexPath = path.join(distPath, "index.html");
+
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).send(`Frontend build not found. Looked in: ${distPath}`);
+      res.status(404).send(`Build assets missing. Please check Vercel Logs for: ${distPath}`);
     }
   });
 }

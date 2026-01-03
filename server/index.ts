@@ -51,7 +51,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -59,25 +58,29 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  // Register routes (API etc)
-  await registerRoutes(httpServer, app);
+// --- REFACTORED INITIALIZATION ---
 
+// 1. Synchronously register middleware/routes where possible
+// Note: If registerRoutes MUST be awaited, we do it in a non-blocking way for Vercel
+registerRoutes(httpServer, app).then(() => {
+  // 2. Setup Error Handling after routes
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
   });
 
-  // Check if we are on Vercel or in Production
+  // 3. Setup Static Files or Vite
   if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
+    // We use a dynamic import here to keep the production bundle small
+    import("./vite").then(({ setupVite }) => {
+      setupVite(httpServer, app);
+    });
   }
 
-  // ONLY start the standalone server if NOT on Vercel
+  // 4. ONLY listen if we are NOT on Vercel
   if (!process.env.VERCEL) {
     const port = parseInt(process.env.PORT || "5000", 10);
     httpServer.listen(
@@ -91,7 +94,9 @@ app.use((req, res, next) => {
         },
     );
   }
-})();
+}).catch(err => {
+  console.error("Failed to initialize server:", err);
+});
 
-// Vercel needs this export to wrap the app in a serverless function
+// Vercel needs this export to be immediately available at the top level
 export default app;

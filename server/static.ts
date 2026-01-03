@@ -1,19 +1,20 @@
 import express, { type Express } from "express";
-import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
+  // Use process.cwd() instead of __dirname for Vercel compatibility
+  const distPath = path.resolve(process.cwd(), "dist", "public");
 
+  // Serve static files from the build directory
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
+  // Fallback to index.html for Single Page Application (SPA) routing
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path.resolve(distPath, "index.html"), (err) => {
+      if (err) {
+        // If index.html is missing, don't crash the server, just send a 404
+        res.status(404).send("Site is still building or dist/public/index.html is missing.");
+      }
+    });
   });
 }

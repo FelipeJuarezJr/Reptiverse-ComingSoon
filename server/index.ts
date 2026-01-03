@@ -6,14 +6,11 @@ import { createServer } from "http";
 const app = express();
 const httpServer = createServer(app);
 
-// middleware and logging
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// IMPORTANT: Vercel needs the app exported immediately
-export default app;
-
-// Wrapper for initialization
+// Initialization logic
 async function startServer() {
   try {
     // 1. Register API/Database routes
@@ -25,19 +22,19 @@ async function startServer() {
       res.status(status).json({ message: err.message || "Internal Server Error" });
     });
 
-    // 3. Handle Static Assets (Vite or Production)
+    // 3. Handle Static Assets
     if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
       serveStatic(app);
     } else {
-      const { setupVite } = await import("./vite");
+      const { setupVite } = await import("./vite.js");
       await setupVite(httpServer, app);
     }
 
-    // 4. Standalone listener (only for local dev, NOT Vercel)
+    // 4. Local Listener (skipped on Vercel)
     if (!process.env.VERCEL) {
       const port = 5000;
       httpServer.listen(port, "0.0.0.0", () => {
-        console.log(`serving on port ${port}`);
+        console.log(`Serving on port ${port}`);
       });
     }
   } catch (error) {
@@ -45,5 +42,8 @@ async function startServer() {
   }
 }
 
-// Fire and forget initialization
-startServer();
+// Single initialization call exported as a promise
+export const appReady = startServer();
+
+// The Express app itself
+export default app;

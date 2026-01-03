@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { insertEmailSubscriberSchema } from "@shared/schema.js";
+import { insertEmailSubscriberSchema } from "../shared/schema.js";
 
 export async function registerRoutes(
   httpServer: Server,
